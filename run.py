@@ -5,7 +5,7 @@ from functions import mkdir_p, get_selenium_browser, get_filepath, get_encoded_d
 
 from config import urls_to_crawl, file_extensions_list, mimetypes_list, request_delay
 
-USAGE_MESSAGE = 'Usage: run.py -o <output_dir>'
+USAGE_MESSAGE = 'Usage: run.py -o <output_dir> -f <output_list_urls>'
 REQUEST_HEADERS = { 'User-Agent': 'Mozilla/5.0' }
 
 def add_new_urls(url, html):
@@ -38,7 +38,13 @@ def crawl_url():
             page_source = None
             met_mimetype_criteria = False
             met_file_extension_criteria = False
-            write_file = False                                        
+            write_file = False
+
+            # Write url to file if file name provided
+            if url_file:
+                with open(url_file, "a") as fw:
+                    fw.write(current_url + os.linesep)
+
             print "\nProcessing URL: %s\n" % current_url
             # Look for a valid head response from the URL
             print "HEAD Request of URL: ", current_url
@@ -61,16 +67,16 @@ def crawl_url():
                         print "No <body> tag found in page source. Requesting URL with Selenium: ", final_url
                         try:
                             browser.get(final_url)
-                            page_source = browser.page_source                    
+                            page_source = browser.page_source
                         except:
                             print "First Selenium request failed. Trying one last time."
                             browser.get(final_url)
-                            page_source = browser.page_source                    
+                            page_source = browser.page_source
                         else:
                             if 'text/html' in content_type and not "<body" in page_source:
-                                print "No <body> tag found in page source. Requesting URL with Selenium one last time."                        
+                                print "No <body> tag found in page source. Requesting URL with Selenium one last time."
                                 browser.get(final_url)
-                                page_source = browser.page_source                                            
+                                page_source = browser.page_source
                         final_url = browser.current_url
                     add_new_urls(final_url, page_source)
                 # Check if we should write files with this mimetype or extension
@@ -123,23 +129,34 @@ def crawl_url():
 if __name__ == "__main__":
     argv = sys.argv[1:]
     # Find or create output directory
-    output_dir = None    
+    output_dir = None
+    url_file = None
     try:
-        opts, args = getopt.getopt(argv, "o:" )
+        opts, args = getopt.getopt(argv, "o:f:" )
     except getopt.GetoptError:
         print USAGE_MESSAGE
         sys.exit(2)
     for opt, arg in opts:
         if opt == "-o":
             output_dir = arg
-    if not output_dir:
+        if opt == "-f":
+            url_file = arg
+    if not output_dir and not url_file:
         print USAGE_MESSAGE
         sys.exit(2)
-    if os.path.isdir(output_dir):
-        print "Found directory: %s" % output_dir
     else:
-        mkdir_p(output_dir)
-        print "Created directory: %s" % output_dir
+        if output_dir:
+            if os.path.isdir(output_dir):
+                print "Found directory: %s" % output_dir
+            else:
+                mkdir_p(output_dir)
+                print "Created directory: %s" % output_dir
+
+        if url_file:
+            if os.path.isfile(url_file):
+                print "Removing existing file: %s" % url_file
+                os.remove(url_file)
+
     # Get URLs from config
     for d in urls_to_crawl:
         files_processed = 0
